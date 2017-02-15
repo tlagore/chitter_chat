@@ -11,7 +11,7 @@ config = {
     'author_email': 'tyronelagore@gmail.com',
     'version': '0.1',
     'install_requires': ['nose'],
-    'packages': ['chat_server', 'chat_client'],
+    'packages': ['cc_server', 'cc_client'],
     'scripts': [],
     'name': 'chitter_chat'
 }
