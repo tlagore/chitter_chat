@@ -1,5 +1,5 @@
-### chitter_chat ###
+## chitter_chat ##
 A basic console based chat client / server
 
-## About ##
+### About ###
 I am using this project to enhance my understanding of python
