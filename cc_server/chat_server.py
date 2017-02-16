@@ -25,22 +25,28 @@ class ChatServer:
 
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.bind((ip, self._port))
-        except:
-            print("Error initializing socket.")
+            self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            #self._socket.bind((socket.gethostname(), self._port))
+            self._socket.bind(('127.0.0.1', self._port))
+            self._listen()
+        except socket.error as ex:
+            print("Error initializing socket: {0}".format(type(ex).__name__))
             
             
     def _listen(self):
         """Listen for a client"""
-        print("listening!")
-
-    def _worker(self):
+        self._socket.listen(1);
+        (client, address) = self._socket.accept()
+        clientThread = threading.Thread(target=self._worker, args=((client, address),))
+        clientThread.start()
+        
+        
+    def _worker(self, args):
         """Handle a client"""
         print("working!")
 
     def __del__(self):
         try:
-            self._socket.shutdown()
             self._socket.close()
         except:
             print("Error closing socket. May not have been initialized")
