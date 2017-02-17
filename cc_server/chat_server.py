@@ -21,11 +21,13 @@ class ChatServer:
         if re.match("127.0.*", ip):
             print("If this number is 127.0.0.1 or similar, comment out")
             print("{0}\t{1}".format(ip, socket.getfqdn()))
-            print("in /etc/hosts")
+            print("In /etc/hosts")
 
         try:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+
+            #TODO change this to the host name when you figure this out
             #self._socket.bind((socket.gethostname(), self._port))
             self._socket.bind(('127.0.0.1', self._port))
             self._listen()
@@ -35,16 +37,19 @@ class ChatServer:
             
     def _listen(self):
         """Listen for a client"""
-        self._socket.listen(1);
-        (client, address) = self._socket.accept()
-        clientThread = threading.Thread(target=self._worker, args=((client, address),))
-        clientThread.start()
+        while True:
+            self._socket.listen(5);
+            (client, address) = self._socket.accept()
+            clientThread = threading.Thread(target=self._worker, args=((client, address),))
+            clientThread.start()
         
         
     def _worker(self, args):
         """Handle a client"""
         print("working!")
-
+        (client, address) = args
+        print("{0}, {1}".format(client, address))
+        
     def __del__(self):
         try:
             self._socket.close()

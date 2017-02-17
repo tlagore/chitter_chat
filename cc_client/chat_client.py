@@ -7,7 +7,7 @@ class ChatClient:
     def __init__(self, host, port):
         """constructor for chat client"""
         print("{0} {1}".format(host, port))
-        
+
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((host, port))
 
@@ -17,8 +17,12 @@ class ChatClient:
         listenServer.start()
         listenClient.start()
 
+        listenServer.join()
+        listenClient.join()
+
     def listen_server(self):
-        """listens for interaction from the server""" 
+        """listens for interaction from the server"""
+        
         print("Listening server")
         
     def listen_client(self):
