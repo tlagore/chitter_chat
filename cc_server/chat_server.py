@@ -1,6 +1,11 @@
-import threading
-import socket
+import pickle
 import re
+import socket
+import threading
+import traceback
+import sys
+
+from message import Message
 
 class ChatServer:
     """Chat server class to handle chat server interactions"""
@@ -11,6 +16,7 @@ class ChatServer:
         self._chat_groups = {}
         self._connected_clients = {}
         self._socket = 0
+        self._users = {}
 
     def start_server(self):
         """Initializes the server socket"""
@@ -28,12 +34,11 @@ class ChatServer:
             self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             #TODO change this to the host name when you figure this out
-            #self._socket.bind((socket.gethostname(), self._port))
-            self._socket.bind(('127.0.0.1', self._port))
+            self._socket.bind(("0.0.0.0", self._port))
+            #self._socket.bind(('127.0.0.1', self._port))
             self._listen()
         except socket.error as ex:
             print("Error initializing socket: {0}".format(type(ex).__name__))
-            
             
     def _listen(self):
         """Listen for a client"""
@@ -41,16 +46,61 @@ class ChatServer:
             self._socket.listen(5);
             (client, address) = self._socket.accept()
             clientThread = threading.Thread(target=self._worker, args=((client, address),))
-            clientThread.start()
+            clientThread.start()            
         
-        
+
     def _worker(self, args):
         """Handle a client"""
-        print("working!")
         (client, address) = args
-        print("{0}, {1}".format(client, address))
         
+        try:
+            message = pickle.loads(client.recv(2048))
+            while message:
+                if message._type == Message.MessageType.signup:
+                    self.sign_up(message, client)
+                    #client.send(pickle.dumps(response))
+                    
+                message = pickle.loads(client.recv(2048))
+        except:
+            print("{0}".format(traceback.format_exception(*sys.exc_info())))
+            print("Client disconnected")
+            
+        print("Exitting worker")
+        
+
+    def sign_up(self, message, client):
+        """handle user sign up"""
+
+        while message._payload != "cancel":
+            print(message._payload)
+            nameAvailable = False if message._payload in self._users else True
+            print(message._payload in self._users)
+            self.ack_client(client, nameAvailable)
+
+            if nameAvailable:
+                break
+            
+            message = pickle.loads(client.recv(2048))
+
+        print("Out of get name")
+            
+        if message._payload != "cancel":
+            name = message._payload
+            message = pickle.loads(client.recv(2048))
+            self._users[name] = message._payload
+            print("{0}: {1}".format(name, message._payload))
+
+        self.ack_client(client, True)
+
+        print(self._users)
+
+    def ack_client(self, client, ack):
+        response = Message(mType=Message.MessageType.confirmation, mPayload=ack)
+        client.send(pickle.dumps(response))
+            
+
     def __del__(self):
+        """ destructor for chat server """
         try:
             self._socket.close()
         except:
@@ -58,9 +108,12 @@ class ChatServer:
         finally:
             print("Server exitting.")
 
+                    
 class Client:
     """Representation of a client"""
-    def __init__(self):
+    def __init__(self, socket):
+        self._user = ""
+        self._groups = []
         """Client Constructor"""
 
 class ChatGroup:

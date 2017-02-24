@@ -7,7 +7,7 @@ def main(args=None):
     
     if len(sys.argv) != 2:
         print("Invalid usage. Usage:")
-        print("%s [port_number]" % sys.argv[0])
+        print("{0} [port_number]".format(sys.argv[0]))
     else:
         try:
             port = int(sys.argv[1]);
@@ -22,7 +22,7 @@ def main(args=None):
         except ValueError:
             print("%s is not a valid port number." % sys.argv[1])
         finally:
-            print("exitting...")
+            print("Exitting...")
             
 if __name__ == "__main__":
     main()
