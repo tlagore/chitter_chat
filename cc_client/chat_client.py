@@ -16,6 +16,8 @@ class ChatClient:
         """constructor for chat client"""
         print("{0} {1}".format(host, port))
 
+        self._user = None
+
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((host, port))
 
@@ -37,37 +39,56 @@ class ChatClient:
                     
     def listen_client(self):
         """listen for client input to pass to the server"""
-
-        my_options=[('a', 'sign up'),
-                 ('b', 'login'),
-                 ('c', 'exit')]
+        my_options=[('s', 'sign up'),
+                 ('l', 'login'),
+                 ('q', 'quit')]
 
         menu = Menu(title="chitter chat:",
                     options=my_options)
         
         choice = menu.get_option()
-        while choice != 'c':
-            if choice == 'a':
+        while choice != 'q':
+            if choice == 's':
                 self.sign_up()
-            elif choice == 'b':
+            elif choice == 'l':
                 self.login()
-            elif choice == 'c':
+            elif choice == 'q':
                 self.close()
-            choice = menu.get_option()
+            choice = menu.get_option()        
 
-        '''
-        userIn = input(">>: ")
-        while userIn != "/exit":
-            message = Message(target="my group", mType=Message.MessageType.signup, mPayload=userIn)
-            self._socket.send( pickle.dumps(message))
-            userIn = input(">>: ")
-        '''    
+            
+    def user_loop(self):
+        """ menu loop for when user is logged in """
+        if self._user is None:
+            print("User must be logged in to use this feature.")
+        else:
+            my_options = [('j', 'join channel'),
+                          ('l', 'logout'),
+                          ('q', 'quit')]
+
+            menu = Menu(title="{0}'s chitter chat".format(self._user),
+                        options = my_options)
+
+            choice = menu.get_option()
+            while choice != 'q':
+                  if choice == 'j':
+                      Menu.three_dots("Join channel!")
+                  elif choice == 'l':
+                      Menu.three_dots("Join channel!")
+                  elif choice == 'q':
+                      Menu.three_dots("Join channel!")
+                  choice = menu.get_option()        
+            
             
     def sign_up(self):
+        """ 
+        handles client side interaction of signing in to server
+        
+        checks with the server to ensure name is available
+        """
         user = input("Please enter a user name (\"cancel\" to cancel): ")
         response = self.request_user(user)
 
-        print(user)
         while response._payload != True and user != "cancel":
             print("User name is taken.")
             user = input("Please enter a user name (\"cancel\" to cancel): ")
@@ -98,8 +119,34 @@ class ChatClient:
         return response
         
     def login(self):
-        print("login!")
+        message = self.get_creds()
+        self._socket.send(pickle.dumps(message))
+        response = pickle.loads(self._socket.recv(2048))
+        
+        while response._payload != True:
+            print("Invalid user or password.")
+            message = self.get_creds()
 
+            self._socket.send(pickle.dumps(message))
+            response = pickle.loads(self._socket.recv(2048))
+            
+            if message._target == "cancel":
+                break
+
+        if message._target != "cancel":
+            Menu.three_dots("Login successful")
+            self._user = message._target
+            self.user_loop()
+            
+        else:
+            Menu.three_dots("Login cancelled")
+
+    def get_creds(self):
+        user = input("User name (\"cancel\" to abort): ")
+        psw = getpass()
+        message = Message(mType=Message.MessageType.login, target=user, mPayload=psw)
+        return message
+        
     def close(self):
         print("exit!")
     
@@ -156,8 +203,7 @@ class Menu:
             choice = input(self._prompt)
             choices = [ch for ch in self._options if ch[0] == choice]
             while not choices:
-                print("Invalid choice", end='')
-                self.three_dots()
+                self.three_dots(message="Invalid choice")
 
                 self.display_menu()
                 choice = input(self._prompt)

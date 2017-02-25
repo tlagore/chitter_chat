@@ -1,4 +1,7 @@
+import json
+import hashlib
 import pickle
+import random
 import re
 import socket
 import threading
@@ -17,6 +20,11 @@ class ChatServer:
         self._connected_clients = {}
         self._socket = 0
         self._users = {}
+        try:
+            with open('u.txt') as inFile:
+                self._users = json.load(inFile)
+        except:
+            print("Error loading users, file might not exist")
 
     def start_server(self):
         """Initializes the server socket"""
@@ -47,18 +55,19 @@ class ChatServer:
             (client, address) = self._socket.accept()
             clientThread = threading.Thread(target=self._worker, args=((client, address),))
             clientThread.start()            
-        
-
+    
     def _worker(self, args):
         """Handle a client"""
         (client, address) = args
+        self._connected_clients[client] = None
         
         try:
             message = pickle.loads(client.recv(2048))
             while message:
                 if message._type == Message.MessageType.signup:
                     self.sign_up(message, client)
-                    #client.send(pickle.dumps(response))
+                if message._type == Message.MessageType.login:
+                    self.login(message, client)
                     
                 message = pickle.loads(client.recv(2048))
         except:
@@ -67,41 +76,64 @@ class ChatServer:
             
         print("Exitting worker")
         
-
+        
     def sign_up(self, message, client):
         """handle user sign up"""
-
         while message._payload != "cancel":
-            print(message._payload)
             nameAvailable = False if message._payload in self._users else True
-            print(message._payload in self._users)
             self.ack_client(client, nameAvailable)
 
             if nameAvailable:
                 break
             
             message = pickle.loads(client.recv(2048))
-
-        print("Out of get name")
             
         if message._payload != "cancel":
             name = message._payload
             message = pickle.loads(client.recv(2048))
-            self._users[name] = message._payload
-            print("{0}: {1}".format(name, message._payload))
+            salt = self.gen_salt()
+            self._users[name] = [salt, hashlib.sha512((salt + message._payload).encode('utf-8')).hexdigest()]
 
         self.ack_client(client, True)
 
         print(self._users)
 
+    def login(self, message, client):
+        success = False
+
+        while message._target != "cancel":
+            user = message._target
+            psw = message._payload
+
+            if user in self._users:
+                uSalt = self._users[user][0]
+                uHash = self._users[user][1]
+                
+                if uHash == hashlib.sha512((uSalt + psw).encode('utf-8')).hexdigest():
+                    success = True
+                    self._connected_clients[client] = user
+
+                print("{0}: {1}".format(user, psw))
+                self.ack_client(client, success)
+
+                if not success:
+                    message = pickle.loads(client.recv(2048))
+                else:
+                    break
+
+    def gen_salt(self):
+        alpha = "0123456790abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ~!@#$%^&*()-=_+`"
+        return ''.join(random.choice(alpha) for i in range(16))
+        
     def ack_client(self, client, ack):
         response = Message(mType=Message.MessageType.confirmation, mPayload=ack)
-        client.send(pickle.dumps(response))
-            
+        client.send(pickle.dumps(response))            
 
     def __del__(self):
-        """ destructor for chat server """
+        """ destructor for chat server """        
         try:
+            with open('u.txt', 'w') as out:
+                json.dump(self._users, out)
             self._socket.close()
         except:
             print("Error closing socket. May not have been initialized")
