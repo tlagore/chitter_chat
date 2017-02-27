@@ -42,8 +42,8 @@ class ChatServer:
             self._socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
             #TODO change this to the host name when you figure this out
-            self._socket.bind(("0.0.0.0", self._port))
-            #self._socket.bind(('127.0.0.1', self._port))
+            #self._socket.bind(("0.0.0.0", self._port))
+            self._socket.bind(('127.0.0.1', self._port))
             self._listen()
         except socket.error as ex:
             print("Error initializing socket: {0}".format(type(ex).__name__))
@@ -53,6 +53,7 @@ class ChatServer:
         while True:
             self._socket.listen(5);
             (client, address) = self._socket.accept()
+            print("Client connected.")
             clientThread = threading.Thread(target=self._worker, args=((client, address),))
             clientThread.start()            
     
@@ -60,7 +61,6 @@ class ChatServer:
         """Handle a client"""
         (client, address) = args
         self._connected_clients[client] = None
-        
         try:
             message = pickle.loads(client.recv(2048))
             while message:
@@ -68,6 +68,8 @@ class ChatServer:
                     self.sign_up(message, client)
                 if message._type == Message.MessageType.login:
                     self.login(message, client)
+                if message._type == Message.MessageType.join_group:
+                    self.join_group(message, client)
                     
                 message = pickle.loads(client.recv(2048))
         except:
@@ -75,8 +77,25 @@ class ChatServer:
             print("Client disconnected")
             
         print("Exitting worker")
-        
-        
+
+    def join_group(self, message, client):
+        """ handles a client attempting to join a group """
+        if client in self._connected_clients:
+            user = self._connected_clients[client]
+            group = message._payload
+            #got user name, now need to add him to existing chat group
+            if group in self._chat_groups:
+                self._chat_groups[group].add_client(user, socket=client)
+            else:
+                self._chat_groups[group] = ChatGroup(group)
+                self._chat_groups[group].add_client(user, socket=client)
+
+            self.ack_client(client, True)
+        else:
+            print("Client has not logged in yet")
+            self.ack_client(client, False)
+            
+            
     def sign_up(self, message, client):
         """handle user sign up"""
         while message._payload != "cancel":
@@ -150,3 +169,24 @@ class Client:
 
 class ChatGroup:
     """Representation of a chat group"""
+    def __init__(self, name):
+        """ constructor for ChatGroup """
+        self._clients = {}
+        self._name = name
+
+    def send_all(self, message):
+        """  """
+        try:
+            message = Message(mType=Message.MessageType.message, mPayload=message)
+            for client, socket in self._clients.items():
+                socket.send(pickle.dumps(message))
+                                
+        except:
+            print("Error sending message to chat group {0}.".format(str(self._name)))
+
+    def add_client(self, user_name, socket):
+        self._clients[user_name] = socket
+
+    def remove_client(self, user_name):
+        if user_name in self._clients:
+            self._clients[user_name] = None

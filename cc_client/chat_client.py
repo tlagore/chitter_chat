@@ -17,6 +17,7 @@ class ChatClient:
         print("{0} {1}".format(host, port))
 
         self._user = None
+        self._group = None
 
         self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._socket.connect((host, port))
@@ -72,13 +73,47 @@ class ChatClient:
             choice = menu.get_option()
             while choice != 'q':
                   if choice == 'j':
-                      Menu.three_dots("Join channel!")
+                      self.join_group()
                   elif choice == 'l':
-                      Menu.three_dots("Join channel!")
+                      break
                   elif choice == 'q':
                       Menu.three_dots("Join channel!")
                   choice = menu.get_option()        
-            
+
+    def join_group(self):
+        """ 
+        handles client attempting to join a group
+        """
+        group = input("Please enter a group to join (\"cancel\" to cancel): ")
+        message = Message(mType=Message.MessageType.join_group, mPayload=group)
+        self._socket.send(pickle.dumps(message))
+        response = pickle.loads(self._socket.recv(2048))
+        while response._payload != True and message._payload != "cancel":
+            print("Error joining channel.")
+            group = input("Please enter a group to join (\"cancel\" to cancel): ")
+            message = Message(mType=Message.MessageType.join_group, mPayload=group)
+            self._socket.send(pickle.dumps(message))
+            response = pickle.loads(self._socket.recv(2048))
+
+            ##YOU WERE EDITING THIS FUNCTION
+
+        if response._payload == True:
+            self._group = group
+            self.chat_loop()
+
+    def chat_loop(self):
+        if self._group is None:
+            print("Group is not set...")
+        else:
+            print("chat loop! {0}".format(self._group))
+            time.sleep(2)
+        
+    def serialize_message(m_type=None, m_payload=None, m_target=None):
+        """ Haven't used yet, but might be useful to create a message
+        and serialize in the same call """
+        message = Message(mType=m_type, mPayload=m_payload, target=m_target)
+        return pickle.dumps(message)
+        
             
     def sign_up(self):
         """ 
